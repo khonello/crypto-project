@@ -104,9 +104,9 @@ class ProjectWindow(QMainWindow):
 
         def generate_func(*args):
 
-            def compute_key(is_private):
+            def compute_key(*args):
 
-                if is_private:
+                if not args[0]:
                     
                     key = Key().address()
                 else:
@@ -126,19 +126,16 @@ class ProjectWindow(QMainWindow):
 
             if check_box1.isChecked():
                 
-                # with Executor() as executor:
-                    
-                #     ...
                     if len(private_key_lineedit.text()) == 0:
                         self.data["public_key"] += [
-                                Key().address() for _ in range(num_of_repetitions)
+                                compute_key(False) for _ in range(num_of_repetitions)
                         ]
                     else:
                             from bitcoin import is_privkey
                             if is_privkey(private_key_lineedit.text()):
 
                                 self.data["public_key"] += [
-                                    Key(private_key_lineedit.text()).address() for _ in range(num_of_repetitions)
+                                    compute_key(True) for _ in range(num_of_repetitions)
                                 ]
                             else: 
                                 QMessageBox.warning(self, "Private Key", "Private key is invalid")
