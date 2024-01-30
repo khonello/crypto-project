@@ -36,11 +36,18 @@ from sys import (
     exit
 )
 
+from pickle import (
+    dumps,
+    load
+)
+
 from bitcoinlib.keys import Key 
 from bitcoinlib.mnemonic import Mnemonic
 
 from concurrent.futures import Executor
+from argparse import ArgumentParser
 
+from rich import print
 
 app = QApplication(argv)
 app.setStyle("Fusion")
@@ -53,7 +60,7 @@ class ProjectWindow(QMainWindow):
     main_widget = QWidget()
     generated = 0
 
-    def __init__(self, parent: QWidget= None, flags= None):
+    def __init__(self, parent: QWidget= None, flags= None, data= None):
         super().__init__(parent, flags)
         self.setStyleSheet(
             '''
@@ -66,12 +73,12 @@ class ProjectWindow(QMainWindow):
         self.setWindowIcon(QIcon('icon/icon.ico'))
         self.resize(720, 410)
         self.set_title()
-        self.splitter()
-        self.data = dict(
-            public_key= [],
-            recorvery_phrase= []
-        )
+        self.data = data if data else dict(
+            recorvery_phrase= [],
+            public_key= []
 
+        )
+        self.splitter()
         self.main_layout.addStretch(1)
 
         self.main_widget.setLayout(self.main_layout)
@@ -101,6 +108,35 @@ class ProjectWindow(QMainWindow):
                 a0.accept()
 
     def splitter(self):
+
+        def validate_data():
+
+            if self.data:
+
+                self.key_string = ""
+                if keys:=self.data.get("public_key"):
+
+                    self.key_string = "\n".join(keys)
+
+                    keys_content.setText(self.key_string)
+                    keys_content.adjustSize()
+                    scroll_area_key_widget.adjustSize()
+                
+                if phrases:=self.data.get("recorvery_phrase"):
+
+                    self.phrase_string = ""
+                    for phrase in phrases:
+
+                        elements = phrase.split()
+
+                        formatted_string = "\n".join(" ".join(elements[i:i+6]) for i in range(0, len(elements), 6))
+                        formatted_string += "\n\n"
+
+                        self.phrase_string += formatted_string
+
+                    phrase_content.setText(self.phrase_string)
+                    phrase_content.adjustSize()
+                    scroll_area_phrase_widget.adjustSize()
 
         def generate_func(*args):
 
@@ -148,33 +184,7 @@ class ProjectWindow(QMainWindow):
                     mnemonic.generate() for _ in range(num_of_repetitions)
                 ]
 
-            if self.data:
-
-                self.key_string = ""
-
-                if keys:=self.data.get("public_key"):
-
-                    self.key_string = "\n".join(keys)
-
-                    keys_content.setText(self.key_string)
-                    keys_content.adjustSize()
-                    scroll_area_key_widget.adjustSize()
-                
-                if phrases:=self.data.get("recorvery_phrase"):
-
-                    self.phrase_string = ""
-                    for phrase in phrases:
-
-                        elements = phrase.split()
-
-                        formatted_string = "\n".join(" ".join(elements[i:i+6]) for i in range(0, len(elements), 6))
-                        formatted_string += "\n\n"
-
-                        self.phrase_string += formatted_string
-
-                    phrase_content.setText(self.phrase_string)
-                    phrase_content.adjustSize()
-                    scroll_area_phrase_widget.adjustSize()
+            validate_data()
         
         left_parent_frame = QFrame()
         left_parent_frame_layout = QVBoxLayout()
@@ -513,6 +523,7 @@ class ProjectWindow(QMainWindow):
         footer_frame_layout = QHBoxLayout()
         footer_frame_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
 
+        validate_data()
         def copy(*args):
             
                 data = ""
@@ -549,20 +560,11 @@ class ProjectWindow(QMainWindow):
         )
 
         def save(*args):
-
+            
             if self.data["public_key"] or self.data["recorvery_phrase"]:
 
-                if text_list:=self.data["public_key"]:
-
-                    text = "\n".join(text_list)
-                    data = bytes(text, encoding= "utf-8", errors= "ignore")
-
-                    QFileDialog.saveFileContent(data, "public_key.txt")
-                
-                if text_list:=self.data["recorvery_phrase"]:
-                    
-                    data = bytes(self.phrase_string, encoding= "utf-8", errors= "ignore")
-                    QFileDialog.saveFileContent(data, "recovery_phrase.txt")
+                byte_data = dumps(self.data)
+                QFileDialog.saveFileContent(byte_data, "Untitled.crpt")
                 
             else:
                 QMessageBox.warning(self, "Save", "No data to save", QMessageBox.StandardButton.Close)
@@ -614,7 +616,27 @@ class ProjectWindow(QMainWindow):
 
 def main():
 
-    main_window = ProjectWindow(flags= Qt.WindowType.FramelessWindowHint)
+    parser = ArgumentParser(description= "provide path to file")
+    parser.add_argument("-f", "--file", action= "store", default= None, required= False)
+
+    try:
+        namespace = parser.parse_args()
+
+        import os
+        if (filepath := namespace.file) and os.path.exists(filepath):
+
+            if filepath.endswith(".crpt"):
+
+                with open(filepath, "rb") as file_obj:
+
+                    old_data = load(file_obj)
+                    main_window = ProjectWindow(flags= Qt.WindowType.FramelessWindowHint, data= old_data)
+        else:
+
+            main_window = ProjectWindow(flags= Qt.WindowType.FramelessWindowHint)
+    except Exception as e:
+
+        main_window = ProjectWindow(flags= Qt.WindowType.FramelessWindowHint)
     
     image = QPixmap('img/splash.png')
     splashscreen = QSplashScreen(image, Qt.WindowType.WindowStaysOnTopHint)
