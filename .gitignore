@@ -1,0 +1,5 @@
+build
+dist
+environ
+*.spec
+test*.py
